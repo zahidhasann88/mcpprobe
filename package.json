@@ -10,13 +10,19 @@
   },
   "homepage": "https://github.com/zahidhasann88/mcpprobe#readme",
   "bugs": "https://github.com/zahidhasann88/mcpprobe/issues",
-  "keywords": ["mcp", "model-context-protocol", "testing", "fuzzing", "cli"],
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "testing",
+    "fuzzing",
+    "cli"
+  ],
   "engines": {
     "node": ">=20"
   },
   "packageManager": "pnpm@10.34.7",
   "bin": {
-    "mcpprobe": "./dist/cli/index.js"
+    "mcpprobe": "dist/cli/index.js"
   },
   "exports": {
     ".": {
