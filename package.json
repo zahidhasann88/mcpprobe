@@ -1,9 +1,16 @@
 {
-  "name": "mcpprobe",
+  "name": "@zahid15/mcpprobe",
   "version": "0.1.0",
   "description": "Safety-first scripted testing and fuzzing for MCP servers",
   "type": "module",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zahidhasann88/mcpprobe.git"
+  },
+  "homepage": "https://github.com/zahidhasann88/mcpprobe#readme",
+  "bugs": "https://github.com/zahidhasann88/mcpprobe/issues",
+  "keywords": ["mcp", "model-context-protocol", "testing", "fuzzing", "cli"],
   "engines": {
     "node": ">=20"
   },

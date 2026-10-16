@@ -21,6 +21,6 @@ jobs:
       - name: Verify tag matches package version
         run: node --input-type=module -e 'import p from "./package.json" with {type:"json"}; if (`v${p.version}` !== process.env.GITHUB_REF_NAME) process.exit(1)'
       - run: pnpm lint && pnpm typecheck && pnpm test && pnpm build
+      # Trusted publishing (OIDC): no npm token needed; requires npm >= 11.5.1.
+      - run: npm install -g npm@latest
       - run: npm publish --provenance --access public --ignore-scripts
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

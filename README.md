@@ -15,7 +15,7 @@ Requires Node.js 20+.
 ## Quick start
 
 ```sh
-git clone <this-repo> && cd mcpprobe
+git clone https://github.com/zahidhasann88/mcpprobe.git && cd mcpprobe
 pnpm install
 pnpm build
 npm link          # makes the `mcpprobe` command available everywhere
@@ -202,7 +202,7 @@ Each check reports **pass**, **warn**, **fail** or **skipped**, with a stable ID
 ## Library usage
 
 ```ts
-import { resolveOptions, testServer, formatReport } from "mcpprobe";
+import { resolveOptions, testServer, formatReport } from "@zahid15/mcpprobe";
 
 const options = resolveOptions({}, { stdio: "node ./server.js", seed: 42 });
 const report = await testServer(options);
