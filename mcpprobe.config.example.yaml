@@ -1,0 +1,18 @@
+# Copy to mcpprobe.config.yaml. Never commit credentials.
+defaultTarget: local
+timeout: 15000
+maxDuration: 120000
+latencyBudget: 2000
+seed: 424242
+allowTool: []
+denyTool: []
+targets:
+  local:
+    stdio: "node ./server.js --flag"
+    env:
+      API_TOKEN: "${TOKEN}"
+  remote:
+    http: https://example.com/mcp
+    headers:
+      Authorization: "Bearer ${TOKEN}"
+    timeout: 20000

@@ -1,0 +1,21 @@
+node_modules/
+dist/
+coverage/
+*.tgz
+*.log
+.env
+mcpprobe.config.json
+mcpprobe.config.yaml
+mcpprobe.config.yml
+reports/
+
+# Local-only project notes
+build-docs.txt
+VALIDATION.md
+
+# Editor / tooling
+.vscode/
+.idea/
+.claude/
+.DS_Store
+Thumbs.db
