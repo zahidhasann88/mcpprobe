@@ -1,91 +1,67 @@
 # mcpprobe
 
-**Test your MCP server before your users do.**
+Scripted testing, fuzzing and benchmarking for [Model Context Protocol](https://modelcontextprotocol.io) servers, as a CLI and a TypeScript library.
 
-mcpprobe connects to a [Model Context Protocol](https://modelcontextprotocol.io) server, looks at everything it offers, calls its tools with normal and tricky inputs, and tells you what broke: crashes, protocol mistakes, leaked secrets and slow calls.
+![mcpprobe finding a bug in an MCP server](assets/demo.gif)
 
-Works with local servers (stdio) and remote ones (HTTP / SSE). Requires Node.js 20+.
+## Features
 
-## How it works
+- Checks the protocol handshake, error handling, tool schemas, resources and prompts.
+- Calls tools with valid, invalid and hostile inputs generated from their schemas, and shrinks failing inputs.
+- Reports crashes, unhandled errors, leaked stack traces or secrets, and slow calls.
+- Only calls read-only tools unless you allow more. Secrets are redacted from output.
+- Reproducible runs from a seed, with a ready-to-run `mcpprobe call` command for each failure.
+- Connects over stdio, Streamable HTTP or legacy SSE. Reports as console, JSON, JUnit, Markdown or SARIF.
 
-1. **Connect** – starts your server (or connects to its URL) and does the normal MCP handshake, just like a real AI client would.
-2. **Discover** – lists all tools, resources and prompts the server offers.
-3. **Pick safe tools** – keeps only tools marked read-only (unless you allow more).
-4. **Call them** – builds inputs from each tool's schema: valid ones, broken ones, and random ones. It also sends bad protocol messages on purpose.
-5. **Report** – checks every response and prints pass / warn / fail, with a fix hint and a command to reproduce each problem.
-
-Random inputs come from a seed, so running the same seed again gives exactly the same test.
-
-## Install
+## Installation
 
 ```sh
-npm install -g @zahid15/mcpprobe
+npm install -g @zahid15/mcpprobe   # CLI
+npm install @zahid15/mcpprobe      # library
 ```
 
-Or run it without installing:
+## Quick Start
 
 ```sh
-npx @zahid15/mcpprobe inspect --stdio "node ./server.js"
-```
-
-## Usage
-
-```sh
-# See what the server offers
-mcpprobe inspect --stdio "node ./server.js"
-
-# Run all checks and get a pass/fail report
-mcpprobe test --stdio "node ./server.js"
-
-# Send lots of random inputs to one tool
-mcpprobe fuzz --stdio "node ./server.js" --tool search
-
-# Measure speed
-mcpprobe bench --stdio "node ./server.js" --tool search
-
-# Call a tool by hand
+mcpprobe inspect --stdio "node ./server.js"                # list tools, resources and prompts
+mcpprobe test --stdio "node ./server.js"                   # run all checks
+mcpprobe fuzz --stdio "node ./server.js" --tool search     # random inputs for one tool
+mcpprobe bench --http https://host/mcp --tool search       # latency and throughput
 mcpprobe call search --stdio "node ./server.js" --args '{"query":"hello"}'
 ```
 
-For a remote server, use `--http` instead of `--stdio`:
+Exit codes: `0` passed, `1` checks failed, `2` invalid command or config, `3` could not connect. Run `mcpprobe <command> --help` for all options. To call tools that are not read-only, use `--allow-tool <name>`, `--allow-unsafe` or `--allow-destructive`, plus `--yes` in CI.
 
-```sh
-mcpprobe test --http https://host/mcp --header "Authorization: Bearer $TOKEN"
+```ts
+import { resolveOptions, testServer, formatReport } from "@zahid15/mcpprobe";
+
+const options = resolveOptions({}, { stdio: "node ./server.js" });
+const report = await testServer(options);
+
+console.log(formatReport(report, "markdown"));
+process.exitCode = report.exitCode;
 ```
 
-Run `mcpprobe <command> --help` to see all options.
+## API
 
-### Useful options
-
-| Option | What it does |
+| Function | Returns |
 |---|---|
-| `--tool <name>` | Only test this tool |
-| `--format <type>` | Report as `console`, `json`, `junit`, `markdown` or `sarif` |
-| `--out <file>` | Save the report to a file |
-| `--seed <n>` | Repeat the exact same random inputs |
-| `--strict` | Treat warnings as failures |
+| `resolveOptions(config?, flags?, env?)` | `Options` built from a config object and flags such as `stdio`, `http`, `headers`, `tool`, `seed`, `allowTool` |
+| `loadConfig(file?)` | `Promise<Config>` from `mcpprobe.config.{json,yaml,yml}` in the working directory, or the given file |
+| `inspect(options)` | `Promise<Report>` with the server inventory in `report.inventory` |
+| `testServer(options, strict?)` | `Promise<Report>` from the full check suite |
+| `fuzz(options, strict?)` | `Promise<Report>` from fuzzing (`options.runs` per tool) |
+| `bench(options, strict?)` | `Promise<Report>` with latency stats in `report.benchmarks` |
+| `callTool(options, name, args)` | `Promise<{ result?, report }>` for a single tool call |
+| `formatReport(report, format?, color?)` | `string` in `console`, `json`, `junit`, `markdown` or `sarif` format |
 
-## Safe by default
+A `Report` contains `findings` (each with `status`, `id`, `explanation`, `fix` and an optional `reproduction`), a `summary` count per status, and an `exitCode`. Types are exported: `Report`, `Finding`, `Options`, `Config` and more.
 
-mcpprobe only calls tools that say they are **read-only**. Everything else is skipped, so it won't delete or change your data by accident.
+Invalid options throw `UsageError`. Setting `allowUnsafe` or `allowDestructive` also requires `yes: true`.
 
-To call other tools, allow them yourself:
+## Configuration
 
-| Flag | What it does |
-|---|---|
-| `--allow-tool <name>` | Allow one specific tool |
-| `--deny-tool <name>` | Never call this tool |
-| `--allow-unsafe` | Allow tools that don't say whether they are safe |
-| `--allow-destructive` | Allow tools marked as destructive |
-| `--yes` | Skip the confirmation prompt (needed in CI) |
-
-Secrets like tokens and headers are always hidden as `[REDACTED]` in the output.
-
-> A server can mislabel its tools. Always test against a throwaway server with fake data.
-
-## Config file (optional)
-
-Instead of typing the same flags every time, create `mcpprobe.config.yaml` in your project:
+The CLI reads `mcpprobe.config.yaml` (or `.yml` / `.json`) from the working directory. Flags override it, and `${NAME}` reads an environment variable.
 
 ```yaml
 defaultTarget: local
@@ -96,54 +72,15 @@ targets:
   staging:
     http: https://host/mcp
     headers:
-      Authorization: "Bearer ${TOKEN}"   # read from your environment
+      Authorization: "Bearer ${TOKEN}"
 ```
 
-Then just run `mcpprobe test`. See [mcpprobe.config.example.yaml](mcpprobe.config.example.yaml) for every option.
+All keys are listed in [mcpprobe.config.example.yaml](mcpprobe.config.example.yaml).
 
-## What it checks
+## Compatibility
 
-- **Protocol** – the handshake works, unknown or broken requests get proper errors, and the server doesn't crash or print junk to stdout.
-- **Tools** – names, descriptions and schemas are valid; good input works; bad input is rejected cleanly; responses don't leak stack traces, file paths or secrets; calls aren't too slow.
-- **Resources and prompts** – everything listed can actually be read.
-
-Every failure comes with a hint on how to fix it and a `mcpprobe call ...` command to reproduce it.
-
-## Exit codes
-
-| Code | Meaning |
-|---|---|
-| `0` | All checks passed |
-| `1` | Some checks failed |
-| `2` | Wrong command or config |
-| `3` | Couldn't connect to the server |
-
-## Use in CI
-
-```yaml
-- uses: actions/setup-node@v4
-  with:
-    node-version: 22
-- run: npx @zahid15/mcpprobe test --stdio "node ./server.js" --format junit --out junit.xml
-```
-
-## Use as a library
-
-```ts
-import { resolveOptions, testServer, formatReport } from "@zahid15/mcpprobe";
-
-const report = await testServer(resolveOptions({}, { stdio: "node ./server.js" }));
-console.log(formatReport(report, "markdown"));
-```
-
-## Contributing
-
-```sh
-pnpm install
-pnpm test
-pnpm dev inspect --stdio "node ./server.js"   # run from source
-```
+Node.js 20 or later. The library is ESM only.
 
 ## License
 
-MIT
+[MIT](LICENSE)
