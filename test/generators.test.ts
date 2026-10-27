@@ -39,8 +39,15 @@ describe("generators and hardening", () => {
       required: ["nested"],
     };
     const samples = generateInputs(schema, 123);
+    // Dedup keeps the first label, so `{ nested: {} }` may be tagged as a boundary value.
     expect(
-      samples.some((s) => s.kind === "nested-missing-required" && !s.valid),
+      samples.some(
+        (s) =>
+          !s.valid &&
+          typeof s.input.nested === "object" &&
+          s.input.nested !== null &&
+          !("n" in s.input.nested),
+      ),
     ).toBe(true);
     expect(
       samples.every((s) => s.valid === Boolean(validator(schema)(s.input))),

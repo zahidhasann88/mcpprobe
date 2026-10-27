@@ -138,7 +138,7 @@ export class Session {
     params: Record<string, unknown> = {},
   ): Promise<any> {
     // Low-level SDK request avoids its output-schema interception: mcpprobe validates and reports it itself.
-    const { z } = await import("zod/v4");
+    const { z } = await import("zod");
     return this.bounded((signal, timeout) =>
       this.client.request({ method, params }, z.looseObject({}), {
         signal,

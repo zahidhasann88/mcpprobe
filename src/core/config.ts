@@ -6,10 +6,10 @@ import { UsageError } from "./types.js";
 const positive = z.number().int().positive();
 const fields = {
   stdio: z.string().min(1).optional(),
-  http: z.string().url().optional(),
+  http: z.url().optional(),
   sse: z.boolean().optional(),
-  headers: z.record(z.string()).optional(),
-  env: z.record(z.string()).optional(),
+  headers: z.record(z.string(), z.string()).optional(),
+  env: z.record(z.string(), z.string()).optional(),
   cwd: z.string().optional(),
   timeout: positive.optional(),
   maxDuration: positive.optional(),
@@ -29,7 +29,7 @@ export const configSchema = z
   .object({
     ...fields,
     defaultTarget: z.string().optional(),
-    targets: z.record(targetSchema).optional(),
+    targets: z.record(z.string(), targetSchema).optional(),
   })
   .strict();
 export type Config = z.infer<typeof configSchema>;
@@ -62,7 +62,9 @@ export function resolveOptions(
   const name = flags.target ?? config.defaultTarget;
   if (name && !config.targets?.[name])
     throw new UsageError(`Unknown target: ${name}`);
-  const selected = name ? config.targets![name] : {};
+  const selected: z.infer<typeof targetSchema> = name
+    ? config.targets![name]
+    : {};
   const clean = Object.fromEntries(
     Object.entries(flags).filter(([, v]) => v !== undefined),
   );

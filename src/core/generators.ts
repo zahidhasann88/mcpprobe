@@ -2,7 +2,7 @@ import { Ajv } from "ajv";
 import { Ajv2020 } from "ajv/dist/2020.js";
 import { Ajv2019 } from "ajv/dist/2019.js";
 import addFormats from "ajv-formats";
-import jsf from "json-schema-faker";
+import { generateSync } from "json-schema-faker";
 export type Input = Record<string, unknown>;
 export interface Sample {
   input: Input;
@@ -38,47 +38,33 @@ export function validSamples(schema: any, seed: number, count = 3): Input[] {
   const validate = validator(schema);
   const rng = random(seed);
   const result: Input[] = [];
-  const getOption = jsf.option as unknown as (key: string) => unknown;
-  const keys = [
-    "random",
-    "alwaysFakeOptionals",
-    "maxLength",
-    "maxItems",
-    "failOnInvalidFormat",
-    "minDateTime",
-    "maxDateTime",
-  ];
-  const previous = Object.fromEntries(keys.map((k) => [k, getOption(k)]));
-  try {
-    jsf.option({
-      random: rng,
-      alwaysFakeOptionals: true,
-      maxLength: 64,
-      maxItems: 5,
-      failOnInvalidFormat: true,
-      minDateTime: "2020-01-01T00:00:00.000Z",
-      maxDateTime: "2030-01-01T00:00:00.000Z",
-    });
-    for (
-      let attempt = 0;
-      attempt < Math.max(20, count * 10) && result.length < count;
-      attempt++
-    ) {
-      try {
-        const value = jsf.generate(schema) as Input;
-        if (
-          value &&
-          typeof value === "object" &&
-          !Array.isArray(value) &&
-          validate(value)
-        )
-          result.push(value);
-      } catch {
-        /* unsupported schema/format will be reported as generation warning */
-      }
+  const options = {
+    alwaysFakeOptionals: true,
+    maxLength: 64,
+    maxItems: 5,
+    minDateTime: "2020-01-01T00:00:00.000Z",
+    maxDateTime: "2030-01-01T00:00:00.000Z",
+  };
+  for (
+    let attempt = 0;
+    attempt < Math.max(20, count * 10) && result.length < count;
+    attempt++
+  ) {
+    try {
+      const value = generateSync(schema, {
+        ...options,
+        seed: Math.floor(rng() * 4294967296),
+      }) as Input;
+      if (
+        value &&
+        typeof value === "object" &&
+        !Array.isArray(value) &&
+        validate(value)
+      )
+        result.push(value);
+    } catch {
+      /* unsupported schema/format will be reported as generation warning */
     }
-  } finally {
-    jsf.option(previous);
   }
   return result;
 }
