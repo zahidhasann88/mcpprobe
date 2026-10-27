@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project follows [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.3.0] - 2026-10-27
 
 ### Added
 
@@ -48,6 +48,6 @@ All notable changes to this project are documented here. The format is based on 
 - Concurrent benchmarks; console, JSON, JUnit, Markdown and SARIF reports.
 - Tag-driven npm release workflow with provenance.
 
-[Unreleased]: https://github.com/zahidhasann88/mcpprobe/compare/v0.2.0...HEAD
+[0.3.0]: https://github.com/zahidhasann88/mcpprobe/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/zahidhasann88/mcpprobe/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/zahidhasann88/mcpprobe/releases/tag/v0.1.0

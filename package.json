@@ -1,6 +1,6 @@
 {
   "name": "@zahid15/mcpprobe",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Safety-first scripted testing and fuzzing for MCP servers",
   "type": "module",
   "license": "MIT",

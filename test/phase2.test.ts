@@ -48,9 +48,11 @@ describe("phase 2: safety and checks", () => {
   );
   it("reports slow calls and timeouts", async () => {
     const r = await testServer(
+      // The timeout also bounds connect, so leave room for a cold server start;
+      // it must stay below the fixture's 2400 ms delay so the call still times out.
       options("slow", {
-        timeout: 1200,
-        maxDuration: 3800,
+        timeout: 2000,
+        maxDuration: 6000,
         latencyBudget: 20,
         tool: "echo_text",
       }),
