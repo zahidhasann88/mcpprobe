@@ -1,0 +1,88 @@
+name: mcpprobe
+description: Test an MCP server and report crashes, protocol errors, leaks and prompt injection to GitHub code scanning
+author: zahidhasann88
+branding:
+  icon: check-circle
+  color: blue
+inputs:
+  command:
+    description: "mcpprobe command: test, fuzz, bench, run, diff or inspect"
+    default: test
+  args:
+    description: 'Arguments for the command, such as --stdio "node server.js". The action sets --format and --out itself.'
+    required: true
+  version:
+    description: mcpprobe version, dist-tag or .tgz path to install. Defaults to the version of this action's ref.
+    default: ""
+  upload-sarif:
+    description: Upload findings to GitHub code scanning (needs security-events write permission)
+    default: "true"
+  sarif-category:
+    description: Code scanning category, to keep results from several runs apart
+    default: mcpprobe
+  sarif-location:
+    description: Repository file to attach findings to. Defaults to the workflow file that ran the action.
+    default: ""
+  fail:
+    description: Fail the step when mcpprobe reports failures
+    default: "true"
+outputs:
+  exit-code:
+    description: "mcpprobe exit code: 0 passed, 1 checks failed, 2 invalid command or config, 3 could not connect"
+    value: ${{ steps.run.outputs.exit-code }}
+  report:
+    description: Path to the JSON report
+    value: ${{ steps.run.outputs.report }}
+  sarif:
+    description: Path to the SARIF file
+    value: ${{ steps.run.outputs.sarif }}
+  passed:
+    description: Number of passed checks
+    value: ${{ steps.run.outputs.passed }}
+  warned:
+    description: Number of warnings
+    value: ${{ steps.run.outputs.warned }}
+  failed:
+    description: Number of failed checks
+    value: ${{ steps.run.outputs.failed }}
+runs:
+  using: composite
+  steps:
+    - name: Install mcpprobe
+      id: install
+      shell: bash
+      env:
+        VERSION: ${{ inputs.version }}
+      run: |
+        node -e 'const [a, b] = process.versions.node.split(".").map(Number); if (a < 22 || (a === 22 && b < 12)) { console.error(`mcpprobe needs Node.js 22.12 or later, found ${process.version}. Add actions/setup-node before this step.`); process.exit(1) }'
+        version="${VERSION:-$(node -p 'require(process.argv[1]).version' "$GITHUB_ACTION_PATH/package.json")}"
+        case "$version" in
+          *.tgz) spec="$(realpath "$version")" ;;
+          *) spec="@zahid15/mcpprobe@$version" ;;
+        esac
+        dir="$RUNNER_TEMP/mcpprobe"
+        npm install --prefix "$dir" --no-audit --no-fund --loglevel=error "$spec"
+        echo "dir=$dir" >> "$GITHUB_OUTPUT"
+    - name: Run mcpprobe
+      id: run
+      shell: bash
+      env:
+        COMMAND: ${{ inputs.command }}
+        ARGS: ${{ inputs.args }}
+        DIR: ${{ steps.install.outputs.dir }}
+        SARIF_LOCATION: ${{ inputs.sarif-location }}
+      run: node "$GITHUB_ACTION_PATH/action/main.mjs"
+    - name: Upload to code scanning
+      if: inputs.upload-sarif == 'true' && steps.run.outputs.sarif != ''
+      uses: github/codeql-action/upload-sarif@v4
+      with:
+        sarif_file: ${{ steps.run.outputs.sarif }}
+        category: ${{ inputs.sarif-category }}
+    - name: Check result
+      if: inputs.fail == 'true' && steps.run.outputs.exit-code != '0'
+      shell: bash
+      env:
+        CODE: ${{ steps.run.outputs.exit-code }}
+      run: |
+        echo "::error title=mcpprobe::mcpprobe exited with code $CODE (1 checks failed, 2 invalid command or config, 3 could not connect)"
+        exit "$CODE"

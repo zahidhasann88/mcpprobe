@@ -6,14 +6,15 @@ Scripted testing, fuzzing and benchmarking for [Model Context Protocol](https://
 
 ## Features
 
-- Checks the protocol, error handling, schemas, resources, prompts, logging, completions, progress and cancellation.
+- Checks the protocol, error handling, schemas, resources, prompts, logging, completions, progress and cancellation, plus Origin, auth and session handling over HTTP.
 - Calls tools with valid, invalid and hostile inputs from their schemas, and shrinks failing inputs.
 - Finds crashes, leaked stack traces or secrets, slow calls, and prompt injection hidden in tool descriptions.
-- Checks HTTP servers for Origin validation, missing authentication and session handling.
-- Runs your own scenarios, and catches breaking changes against a saved snapshot.
+- Runs your own scenarios, catches breaking changes against a saved snapshot, and runs as a GitHub Action.
 - Only calls read-only tools unless you allow more. Reports as console, JSON, JUnit, Markdown or SARIF.
 
 ## Installation
+
+Requires Node.js 22.12 or later. The library is ESM only.
 
 ```sh
 npm install -g @zahid15/mcpprobe   # CLI
@@ -39,17 +40,13 @@ scenarios:  # each step has one of call, read (resource URI) or prompt; without 
     call: search_notes
     args: { query: milk }
     expect: { contains: "Buy milk", maxMs: 500 }  # also: notContains, matches, isError, structured, error, errorCode
-  - read: notes://recent
 ```
 
 Exit codes: `0` passed, `1` checks failed, `2` invalid command or config, `3` could not connect. Run `mcpprobe <command> --help` for all options. To call tools that are not read-only, use `--allow-tool <name>`, `--allow-unsafe` or `--allow-destructive`, plus `--yes` in CI.
 
 ```ts
 import { resolveOptions, testServer, formatReport } from "@zahid15/mcpprobe";
-
-const options = resolveOptions({}, { stdio: "node ./server.js" });
-const report = await testServer(options);
-
+const report = await testServer(resolveOptions({}, { stdio: "node ./server.js" }));
 console.log(formatReport(report, "markdown"));
 process.exitCode = report.exitCode;
 ```
@@ -72,13 +69,22 @@ process.exitCode = report.exitCode;
 
 A `Report` contains `findings` (each with `status`, `id`, `explanation`, `fix` and an optional `reproduction`), a `summary` count per status, and an `exitCode`. Types are exported: `Report`, `Finding`, `Options`, `Config` and more. Invalid options throw `UsageError`. Setting `allowUnsafe` or `allowDestructive` also requires `yes: true`.
 
+## GitHub Action
+
+```yaml
+- uses: zahidhasann88/mcpprobe@v0.3.0  # needs Node.js 22.12+ and permissions: security-events: write
+  with:
+    args: --stdio "node server.js"      # command defaults to test; also run, diff, fuzz, bench
+```
+
+Findings appear in the job summary and the Security tab; set `upload-sarif: false` if code scanning is off. All inputs and outputs are in [action.yml](action.yml).
+
 ## Configuration
 
-The CLI reads `mcpprobe.config.yaml` (or `.yml` / `.json`) from the working directory. Flags override it, and `${NAME}` reads an environment variable.
+The CLI reads `mcpprobe.config.yaml` (or `.yml` / `.json`) from the working directory. Flags override it, and `${NAME}` reads an environment variable. All keys are in [mcpprobe.config.example.yaml](mcpprobe.config.example.yaml).
 
 ```yaml
 defaultTarget: local
-allowTool: [lookup_record]
 targets:
   local:
     stdio: "node ./server.js"
@@ -87,12 +93,6 @@ targets:
     headers:
       Authorization: "Bearer ${TOKEN}"
 ```
-
-All keys are listed in [mcpprobe.config.example.yaml](mcpprobe.config.example.yaml).
-
-## Compatibility
-
-Node.js 22.12 or later. The library is ESM only.
 
 ## License
 

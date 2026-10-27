@@ -24,3 +24,34 @@ jobs:
       - run: pnpm test
       - run: pnpm build
       - run: npm pack --dry-run --ignore-scripts
+  action:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build && npm pack --ignore-scripts && mv zahid15-mcpprobe-*.tgz mcpprobe.tgz
+      - name: Healthy server passes
+        uses: ./
+        with:
+          version: ./mcpprobe.tgz
+          args: --stdio "node --import tsx test/fixtures/servers/server.ts"
+          upload-sarif: "false"
+      - name: Crashing server is reported
+        id: crash
+        uses: ./
+        with:
+          version: ./mcpprobe.tgz
+          args: --stdio "node --import tsx test/fixtures/servers/server.ts crash"
+          upload-sarif: "false"
+          fail: "false"
+      - name: Check the crash was reported
+        env:
+          CODE: ${{ steps.crash.outputs.exit-code }}
+          FAILED: ${{ steps.crash.outputs.failed }}
+          SARIF: ${{ steps.crash.outputs.sarif }}
+        run: test "$CODE" = 1 && test "$FAILED" -gt 0 && test -s "$SARIF"
