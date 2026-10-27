@@ -2,7 +2,7 @@
 
 Scripted testing, fuzzing and benchmarking for [Model Context Protocol](https://modelcontextprotocol.io) servers, as a CLI and a TypeScript library.
 
-![mcpprobe finding a bug in an MCP server](assets/demo.gif)
+![mcpprobe finding a bug in an MCP server](https://raw.githubusercontent.com/zahidhasann88/mcpprobe/main/assets/demo.gif)
 
 ## Features
 
@@ -92,7 +92,7 @@ All keys are listed in [mcpprobe.config.example.yaml](mcpprobe.config.example.ya
 
 ## Compatibility
 
-Node.js 20 or later. The library is ESM only.
+Node.js 22.12 or later. The library is ESM only.
 
 ## License
 
