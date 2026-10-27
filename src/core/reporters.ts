@@ -1,4 +1,5 @@
 import type { Report, Finding } from "./types.js";
+import { VERSION } from "./version.js";
 export type ReportFormat = "console" | "json" | "junit" | "markdown" | "sarif";
 const display = (v: unknown) => JSON.stringify(v, null, 2) ?? "null";
 const cleanTerminal = (s: string) =>
@@ -150,7 +151,7 @@ export function sarifReport(report: Report): string {
           tool: {
             driver: {
               name: "mcpprobe",
-              version: "0.1.0",
+              version: VERSION,
               rules: ids.map((id) => ({ id, shortDescription: { text: id } })),
             },
           },

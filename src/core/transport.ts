@@ -15,7 +15,6 @@ export interface Diagnostics {
   unexpectedExit?: boolean;
 }
 export function commandParts(command: string): string[] {
-  // No shell, expansions, redirects or operators. Environment interpolation belongs to config.
   const parts = parse(command, () => "");
   if (!parts.length || parts.some((p) => typeof p !== "string"))
     throw new UsageError(
@@ -35,7 +34,6 @@ export class ObservedStdio implements Transport {
   constructor(private target: Target) {}
   async start(): Promise<void> {
     const [command, ...args] = commandParts(this.target.stdio!);
-    // Mirror the SDK's conservative inherited environment, not all ambient secrets.
     const inherited = Object.fromEntries(
       [
         "PATH",
@@ -70,7 +68,9 @@ export class ObservedStdio implements Transport {
         this.buffer = this.buffer.slice(newline + 1);
         if (!line.trim()) continue;
         try {
-          this.onmessage?.(JSONRPCMessageSchema.parse(JSON.parse(line)));
+          const message = JSON.parse(line);
+          if (message?.id === null && "error" in message) delete message.id;
+          this.onmessage?.(JSONRPCMessageSchema.parse(message));
         } catch {
           this.invalid(line.slice(0, 1024));
         }

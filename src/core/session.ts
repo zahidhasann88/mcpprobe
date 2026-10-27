@@ -13,15 +13,17 @@ import {
   type Inventory,
   type Finding,
 } from "./types.js";
+import { VERSION } from "./version.js";
 export class Session {
   client = new Client(
-    { name: "mcpprobe", version: "0.1.0" },
+    { name: "mcpprobe", version: VERSION },
     { capabilities: {} },
   );
   transport!: Transport;
   protocolVersion = "";
   deadline: number;
   findings: Finding[] = [];
+  notifications: { method: string; params?: any }[] = [];
   diagnostics: Diagnostics = { stderr: [], stdoutErrors: [] };
   constructor(public options: Options) {
     this.deadline = Date.now() + options.maxDuration;
@@ -97,6 +99,8 @@ export class Session {
             "protocolVersion" in m.result
           )
             this.protocolVersion = String(m.result.protocolVersion);
+          if ("method" in m && !("id" in m) && this.notifications.length < 1000)
+            this.notifications.push({ method: m.method, params: m.params });
           handler?.(m, extra);
         };
         await original();
@@ -109,13 +113,12 @@ export class Session {
       await attempt(Boolean(this.options.target.sse));
     } catch (first) {
       await this.close();
-      // Only fall back for HTTP endpoint compatibility errors, never auth/timeouts.
       if (
         this.options.target.http &&
         !this.options.target.sse &&
         [404, 405].includes(Number((first as { code?: number }).code))
       ) {
-        this.client = new Client({ name: "mcpprobe", version: "0.1.0" });
+        this.client = new Client({ name: "mcpprobe", version: VERSION });
         this.client.onerror = () => {};
         try {
           await attempt(true);
@@ -137,7 +140,6 @@ export class Session {
     method: string,
     params: Record<string, unknown> = {},
   ): Promise<any> {
-    // Low-level SDK request avoids its output-schema interception: mcpprobe validates and reports it itself.
     const { z } = await import("zod");
     return this.bounded((signal, timeout) =>
       this.client.request({ method, params }, z.looseObject({}), {
@@ -146,12 +148,20 @@ export class Session {
       }),
     );
   }
-  async call(name: string, args: Record<string, unknown>): Promise<any> {
+  async call(
+    name: string,
+    args: Record<string, unknown>,
+    onprogress?: (progress: {
+      progress: number;
+      total?: number;
+      message?: string;
+    }) => void,
+  ): Promise<any> {
     return this.bounded((signal, timeout) =>
       this.client.request(
         { method: "tools/call", params: { name, arguments: args } },
         CallToolResultSchema,
-        { signal, timeout },
+        { signal, timeout, ...(onprogress ? { onprogress } : {}) },
       ),
     );
   }

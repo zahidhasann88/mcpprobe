@@ -6,12 +6,12 @@ Scripted testing, fuzzing and benchmarking for [Model Context Protocol](https://
 
 ## Features
 
-- Checks the protocol handshake, error handling, tool schemas, resources and prompts.
-- Calls tools with valid, invalid and hostile inputs generated from their schemas, and shrinks failing inputs.
-- Reports crashes, unhandled errors, leaked stack traces or secrets, and slow calls.
-- Only calls read-only tools unless you allow more. Secrets are redacted from output.
-- Reproducible runs from a seed, with a ready-to-run `mcpprobe call` command for each failure.
-- Connects over stdio, Streamable HTTP or legacy SSE. Reports as console, JSON, JUnit, Markdown or SARIF.
+- Checks the protocol, error handling, schemas, resources, prompts, logging, completions, progress and cancellation.
+- Calls tools with valid, invalid and hostile inputs from their schemas, and shrinks failing inputs.
+- Finds crashes, leaked stack traces or secrets, slow calls, and prompt injection hidden in tool descriptions.
+- Checks HTTP servers for Origin validation, missing authentication and session handling.
+- Runs your own scenarios, and catches breaking changes against a saved snapshot.
+- Only calls read-only tools unless you allow more. Reports as console, JSON, JUnit, Markdown or SARIF.
 
 ## Installation
 
@@ -28,6 +28,18 @@ mcpprobe test --stdio "node ./server.js"                   # run all checks
 mcpprobe fuzz --stdio "node ./server.js" --tool search     # random inputs for one tool
 mcpprobe bench --http https://host/mcp --tool search       # latency and throughput
 mcpprobe call search --stdio "node ./server.js" --args '{"query":"hello"}'
+mcpprobe run scenarios.yaml --stdio "node ./server.js"     # your own expectations
+mcpprobe snapshot baseline.json --stdio "node ./server.js" # save the inventory
+mcpprobe diff baseline.json --stdio "node ./server.js"     # fail on breaking changes
+```
+
+```yaml
+scenarios:  # each step has one of call, read (resource URI) or prompt; without expect it must succeed
+  - name: finds milk
+    call: search_notes
+    args: { query: milk }
+    expect: { contains: "Buy milk", maxMs: 500 }  # also: notContains, matches, isError, structured, error, errorCode
+  - read: notes://recent
 ```
 
 Exit codes: `0` passed, `1` checks failed, `2` invalid command or config, `3` could not connect. Run `mcpprobe <command> --help` for all options. To call tools that are not read-only, use `--allow-tool <name>`, `--allow-unsafe` or `--allow-destructive`, plus `--yes` in CI.
@@ -53,11 +65,12 @@ process.exitCode = report.exitCode;
 | `fuzz(options, strict?)` | `Promise<Report>` from fuzzing (`options.runs` per tool) |
 | `bench(options, strict?)` | `Promise<Report>` with latency stats in `report.benchmarks` |
 | `callTool(options, name, args)` | `Promise<{ result?, report }>` for a single tool call |
+| `runScenarios(options, scenarios, strict?)` | `Promise<Report>` from scenarios, loaded with `loadScenarios(file)` |
+| `diff(options, baseline, strict?)` | `Promise<Report>` comparing the server with a baseline from `loadSnapshot(file)` |
+| `diffInventories(before, after)` | `Finding[]` comparing two inventories without a server |
 | `formatReport(report, format?, color?)` | `string` in `console`, `json`, `junit`, `markdown` or `sarif` format |
 
-A `Report` contains `findings` (each with `status`, `id`, `explanation`, `fix` and an optional `reproduction`), a `summary` count per status, and an `exitCode`. Types are exported: `Report`, `Finding`, `Options`, `Config` and more.
-
-Invalid options throw `UsageError`. Setting `allowUnsafe` or `allowDestructive` also requires `yes: true`.
+A `Report` contains `findings` (each with `status`, `id`, `explanation`, `fix` and an optional `reproduction`), a `summary` count per status, and an `exitCode`. Types are exported: `Report`, `Finding`, `Options`, `Config` and more. Invalid options throw `UsageError`. Setting `allowUnsafe` or `allowDestructive` also requires `yes: true`.
 
 ## Configuration
 

@@ -4,6 +4,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { ObservedStdio } from "./transport.js";
 import type { Finding, Options } from "./types.js";
+import { VERSION } from "./version.js";
 export async function rawChecks(
   options: Options,
   deadline: number,
@@ -106,7 +107,7 @@ export async function rawChecks(
     const init = await rpc("initialize", {
       protocolVersion: "1900-01-01",
       capabilities: {},
-      clientInfo: { name: "mcpprobe-raw", version: "0.1.0" },
+      clientInfo: { name: "mcpprobe-raw", version: VERSION },
     });
     if (!init.result) throw new Error("Raw probe initialization failed");
     findings.push({

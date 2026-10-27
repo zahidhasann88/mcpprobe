@@ -15,6 +15,11 @@ import {
   fuzz,
   bench,
   callTool,
+  runScenarios,
+  loadScenarios,
+  diff,
+  diffSnapshots,
+  loadSnapshot,
   formatReport,
   redact,
   safetyWarnings,
@@ -23,6 +28,7 @@ import {
   type Report,
   type ReportFormat,
 } from "../core/index.js";
+import { VERSION } from "../core/version.js";
 let currentOptions: Options | undefined;
 function integer(value: string): number {
   if (!/^-?\d+$/.test(value) || !Number.isSafeInteger(Number(value)))
@@ -175,7 +181,7 @@ async function output(
 const program = new Command()
   .name("mcpprobe")
   .description("Safety-first scripted testing and fuzzing of MCP servers")
-  .version("0.1.0")
+  .version(VERSION)
   .configureOutput({
     outputError: () => {
       process.stderr.write("Invalid command or option. Run mcpprobe --help.\n");
@@ -247,6 +253,62 @@ common(
       args as Record<string, unknown>,
     );
     await output(value.report, flags, value.result);
+  });
+common(
+  program
+    .command("run")
+    .description("Run scripted scenarios with expectations from a YAML/JSON file"),
+)
+  .argument("<file>", "Scenario file")
+  .action(async (file: string, flags) => {
+    const scenarios = await loadScenarios(file);
+    const options = await optionsFor(flags, true);
+    await output(await runScenarios(options, scenarios, flags.strict, file), flags);
+  });
+common(
+  program
+    .command("snapshot")
+    .description("Save the server inventory as a baseline for diff"),
+)
+  .argument("<file>", "Snapshot file to write")
+  .action(async (file: string, flags) => {
+    const options = await optionsFor(flags, false);
+    const report = await inspect(options);
+    if (report.inventory && report.exitCode !== 3)
+      try {
+        await writeFile(file, JSON.stringify(report.inventory, null, 2) + "\n");
+      } catch {
+        throw new UsageError("Could not write snapshot file");
+      }
+    report.command = "snapshot";
+    if (!flags.format && !flags.json) {
+      process.stderr.write(
+        report.exitCode === 3
+          ? "Could not connect; no snapshot written\n"
+          : `Saved ${report.inventory!.tools.length} tools, ${report.inventory!.resources.length} resources and ${report.inventory!.prompts.length} prompts to ${file}\n`,
+      );
+      process.exitCode = report.exitCode;
+    } else await output(report, flags);
+  });
+common(
+  program
+    .command("diff")
+    .description("Compare a server, or a second snapshot, with a baseline snapshot"),
+)
+  .argument("<baseline>", "Baseline snapshot file")
+  .argument("[current]", "Snapshot to compare instead of connecting to a server")
+  .action(async (baselineFile: string, currentFile: string | undefined, flags) => {
+    const baseline = await loadSnapshot(baselineFile);
+    if (currentFile) {
+      const current = await loadSnapshot(currentFile);
+      await output(
+        diffSnapshots(baseline, current, `${baselineFile} ${currentFile}`, flags.strict),
+        flags,
+      );
+      return;
+    }
+    const options = await optionsFor(flags, false);
+    await output(await diff(options, baseline, flags.strict, baselineFile), flags);
   });
 try {
   await program.parseAsync();
